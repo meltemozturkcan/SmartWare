@@ -1,6 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using SmartWare.API.Data;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SmartWare.API.Core.Common;
+using SmartWare.API.Data;
+using SmartWare.API.Features.Auth.Services;
+using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -18,8 +23,41 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.EnableDetailedErrors();       // Detaylı hata mesajları
     }
 });
-// Add services to the container.
+// ============================================
+// 1. JWT Settings
+// ============================================
+builder.Services.Configure<JwtSettings>(
+    builder.Configuration.GetSection("JwtSettings"));
 
+var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+// Add services to the container.
+// ============================================
+// 2. Authentication (JWT)
+// ============================================
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings!.Issuer,
+        ValidAudience = jwtSettings.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
+    };
+});
+// ============================================
+// 3. Services
+// ============================================
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddAuthorization();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
