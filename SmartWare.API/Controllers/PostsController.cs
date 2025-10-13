@@ -1,76 +1,70 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartWare.API.Core.Entities;
 using SmartWare.API.Data;
+using SmartWare.API.Features.Blog.DTOs;
 
 namespace SmartWare.API.Controllers
 {
-    /// <summary>
-    /// Blog post yönetimi için API endpoint'leri
-    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class PostsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper;
         private readonly ILogger<PostsController> _logger;
 
-        public PostsController(ApplicationDbContext context, ILogger<PostsController> logger)
+        public PostsController(
+            ApplicationDbContext context,
+            IMapper mapper,
+            ILogger<PostsController> logger)
         {
             _context = context;
+            _mapper = mapper;
             _logger = logger;
         }
 
         // ============================================
         // GET: api/posts
-        // Tüm yayınlanmış postları getir
+        // Tüm yayınlanmış postları getir (DTO ile)
         // ============================================
-        /// <summary>
-        /// Tüm yayınlanmış blog postlarını listeler
-        /// </summary>
-        /// <returns>Post listesi</returns>
-        /// <response code="200">Başarılı - Post listesi döner</response>
         [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<IEnumerable<Post>>> GetPosts()
+        [ProducesResponseType(typeof(List<PostListDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<PostListDto>>> GetPosts()
         {
             try
             {
                 var posts = await _context.Posts
-                    .Include(p => p.Author)           // Author bilgisini de getir
-                    .Include(p => p.PostTags)         // Tag ilişkilerini getir
-                        .ThenInclude(pt => pt.Tag)    // Tag detaylarını getir
-                    .Where(p => p.IsPublished)        // Sadece yayınlanmış postlar
-                    .OrderByDescending(p => p.PublishedAt)  // En yeni önce
+                    .Include(p => p.Author)
+                    .Include(p => p.PostTags)
+                        .ThenInclude(pt => pt.Tag)
+                    .Where(p => p.IsPublished)
+                    .OrderByDescending(p => p.PublishedAt)
                     .ToListAsync();
 
-                _logger.LogInformation("Retrieved {Count} published posts", posts.Count);
+                var postsDto = _mapper.Map<List<PostListDto>>(posts);
 
-                return Ok(posts);
+                _logger.LogInformation("Retrieved {Count} published posts", postsDto.Count);
+
+                return Ok(postsDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving posts");
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // GET: api/posts/5
-        // ID'ye göre tek post getir
+        // ID'ye göre tek post getir (DTO ile)
         // ============================================
-        /// <summary>
-        /// Belirli bir blog postunu ID'sine göre getirir
-        /// </summary>
-        /// <param name="id">Post ID</param>
-        /// <returns>Post detayı</returns>
-        /// <response code="200">Başarılı - Post bulundu</response>
-        /// <response code="404">Post bulunamadı</response>
         [HttpGet("{id}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PostDetailDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<Post>> GetPost(int id)
+        public async Task<ActionResult<PostDetailDto>> GetPost(int id)
         {
             try
             {
@@ -90,32 +84,27 @@ namespace SmartWare.API.Controllers
                 post.ViewCount++;
                 await _context.SaveChangesAsync();
 
+                var postDto = _mapper.Map<PostDetailDto>(post);
+
                 _logger.LogInformation("Retrieved post {PostId}: {Title}", id, post.Title);
 
-                return Ok(post);
+                return Ok(postDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving post {PostId}", id);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // GET: api/posts/slug/akilli-depo-sistemleri
-        // Slug'a göre post getir (SEO-friendly URL)
+        // Slug'a göre post getir (DTO ile)
         // ============================================
-        /// <summary>
-        /// Blog postunu slug'ına göre getirir (SEO-friendly)
-        /// </summary>
-        /// <param name="slug">Post slug (URL-friendly)</param>
-        /// <returns>Post detayı</returns>
-        /// <response code="200">Başarılı - Post bulundu</response>
-        /// <response code="404">Post bulunamadı</response>
         [HttpGet("slug/{slug}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(PostDetailDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<Post>> GetPostBySlug(string slug)
+        public async Task<ActionResult<PostDetailDto>> GetPostBySlug(string slug)
         {
             try
             {
@@ -131,34 +120,29 @@ namespace SmartWare.API.Controllers
                     return NotFound(new { message = $"Post with slug '{slug}' not found" });
                 }
 
-                // View count artır
                 post.ViewCount++;
                 await _context.SaveChangesAsync();
 
+                var postDto = _mapper.Map<PostDetailDto>(post);
+
                 _logger.LogInformation("Retrieved post by slug '{Slug}': {Title}", slug, post.Title);
 
-                return Ok(post);
+                return Ok(postDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving post by slug '{Slug}'", slug);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // GET: api/posts/author/5
-        // Yazarın tüm postlarını getir
+        // Yazarın tüm postlarını getir (DTO ile)
         // ============================================
-        /// <summary>
-        /// Belirli bir yazarın tüm blog postlarını listeler
-        /// </summary>
-        /// <param name="authorId">Yazar ID</param>
-        /// <returns>Yazarın post listesi</returns>
-        /// <response code="200">Başarılı</response>
         [HttpGet("author/{authorId}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<IEnumerable<Post>>> GetPostsByAuthor(int authorId)
+        [ProducesResponseType(typeof(List<PostListDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<PostListDto>>> GetPostsByAuthor(int authorId)
         {
             try
             {
@@ -170,30 +154,26 @@ namespace SmartWare.API.Controllers
                     .OrderByDescending(p => p.PublishedAt)
                     .ToListAsync();
 
-                _logger.LogInformation("Retrieved {Count} posts for author {AuthorId}", posts.Count, authorId);
+                var postsDto = _mapper.Map<List<PostListDto>>(posts);
 
-                return Ok(posts);
+                _logger.LogInformation("Retrieved {Count} posts for author {AuthorId}", postsDto.Count, authorId);
+
+                return Ok(postsDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving posts for author {AuthorId}", authorId);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // GET: api/posts/tag/akilli-depo
-        // Tag'e göre postları getir
+        // Tag'e göre postları getir (DTO ile)
         // ============================================
-        /// <summary>
-        /// Belirli bir etikete sahip blog postlarını listeler
-        /// </summary>
-        /// <param name="tagSlug">Tag slug</param>
-        /// <returns>Tag'e sahip post listesi</returns>
-        /// <response code="200">Başarılı</response>
         [HttpGet("tag/{tagSlug}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<IEnumerable<Post>>> GetPostsByTag(string tagSlug)
+        [ProducesResponseType(typeof(List<PostListDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<PostListDto>>> GetPostsByTag(string tagSlug)
         {
             try
             {
@@ -205,30 +185,26 @@ namespace SmartWare.API.Controllers
                     .OrderByDescending(p => p.PublishedAt)
                     .ToListAsync();
 
-                _logger.LogInformation("Retrieved {Count} posts for tag '{TagSlug}'", posts.Count, tagSlug);
+                var postsDto = _mapper.Map<List<PostListDto>>(posts);
 
-                return Ok(posts);
+                _logger.LogInformation("Retrieved {Count} posts for tag '{TagSlug}'", postsDto.Count, tagSlug);
+
+                return Ok(postsDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving posts for tag '{TagSlug}'", tagSlug);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // GET: api/posts/search?query=depo
-        // Arama yap
+        // Arama yap (DTO ile)
         // ============================================
-        /// <summary>
-        /// Blog postlarında arama yapar (title, content, summary)
-        /// </summary>
-        /// <param name="query">Arama terimi</param>
-        /// <returns>Arama sonuçları</returns>
-        /// <response code="200">Başarılı</response>
         [HttpGet("search")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<IEnumerable<Post>>> SearchPosts([FromQuery] string query)
+        [ProducesResponseType(typeof(List<PostListDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<PostListDto>>> SearchPosts([FromQuery] string query)
         {
             try
             {
@@ -248,42 +224,34 @@ namespace SmartWare.API.Controllers
                     .OrderByDescending(p => p.PublishedAt)
                     .ToListAsync();
 
-                _logger.LogInformation("Search for '{Query}' returned {Count} results", query, posts.Count);
+                var postsDto = _mapper.Map<List<PostListDto>>(posts);
 
-                return Ok(posts);
+                _logger.LogInformation("Search for '{Query}' returned {Count} results", query, postsDto.Count);
+
+                return Ok(postsDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error searching posts with query '{Query}'", query);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // POST: api/posts
-        // Yeni post oluştur
+        // Yeni post oluştur (DTO ile)
         // ============================================
-        /// <summary>
-        /// Yeni bir blog postu oluşturur
-        /// </summary>
-        /// <param name="post">Post verisi</param>
-        /// <returns>Oluşturulan post</returns>
-        /// <response code="201">Başarılı - Post oluşturuldu</response>
-        /// <response code="400">Geçersiz veri</response>
         [HttpPost]
-        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(PostDetailDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<Post>> CreatePost(Post post)
+        public async Task<ActionResult<PostDetailDto>> CreatePost(CreatePostDto createPostDto)
         {
             try
             {
-                // Validation
-                if (string.IsNullOrWhiteSpace(post.Title))
-                {
-                    return BadRequest(new { message = "Title is required" });
-                }
+                // CreatePostDto → Post mapping
+                var post = _mapper.Map<Post>(createPostDto);
 
-                // Slug oluştur (basit versiyon)
+                // Slug oluştur (eğer yoksa)
                 if (string.IsNullOrWhiteSpace(post.Slug))
                 {
                     post.Slug = GenerateSlug(post.Title);
@@ -298,76 +266,98 @@ namespace SmartWare.API.Controllers
                     return BadRequest(new { message = "A post with this slug already exists" });
                 }
 
+                // Tag ilişkilerini oluştur
+                if (createPostDto.TagIds.Any())
+                {
+                    foreach (var tagId in createPostDto.TagIds)
+                    {
+                        post.PostTags.Add(new PostTag
+                        {
+                            TagId = tagId
+                        });
+                    }
+                }
+
                 _context.Posts.Add(post);
                 await _context.SaveChangesAsync();
+
+                // Post'u yeniden çek (Author ve Tag'lerle birlikte)
+                var createdPost = await _context.Posts
+                    .Include(p => p.Author)
+                    .Include(p => p.PostTags)
+                        .ThenInclude(pt => pt.Tag)
+                    .FirstAsync(p => p.Id == post.Id);
+
+                var postDto = _mapper.Map<PostDetailDto>(createdPost);
 
                 _logger.LogInformation("Created new post {PostId}: {Title}", post.Id, post.Title);
 
                 return CreatedAtAction(
                     nameof(GetPost),
                     new { id = post.Id },
-                    post);
+                    postDto);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating post");
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // PUT: api/posts/5
-        // Post güncelle
+        // Post güncelle (DTO ile)
         // ============================================
-        /// <summary>
-        /// Mevcut bir blog postunu günceller
-        /// </summary>
-        /// <param name="id">Post ID</param>
-        /// <param name="post">Güncellenmiş post verisi</param>
-        /// <returns>Sonuç</returns>
-        /// <response code="204">Başarılı - Post güncellendi</response>
-        /// <response code="400">Geçersiz veri</response>
-        /// <response code="404">Post bulunamadı</response>
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdatePost(int id, Post post)
+        public async Task<IActionResult> UpdatePost(int id, UpdatePostDto updatePostDto)
         {
             try
             {
-                if (id != post.Id)
-                {
-                    return BadRequest(new { message = "ID mismatch" });
-                }
-
-                var existingPost = await _context.Posts.FindAsync(id);
+                var existingPost = await _context.Posts
+                    .Include(p => p.PostTags)
+                    .FirstOrDefaultAsync(p => p.Id == id);
 
                 if (existingPost == null)
                 {
                     return NotFound(new { message = $"Post with ID {id} not found" });
                 }
 
-                // Update properties
-                existingPost.Title = post.Title;
-                existingPost.Slug = post.Slug;
-                existingPost.Content = post.Content;
-                existingPost.Summary = post.Summary;
-                existingPost.FeaturedImageUrl = post.FeaturedImageUrl;
-                existingPost.IsPublished = post.IsPublished;
-                existingPost.PublishedAt = post.PublishedAt;
-                existingPost.UpdatedAt = DateTime.UtcNow;
+                // UpdatePostDto → Post mapping (sadece güncellenecek alanlar)
+                _mapper.Map(updatePostDto, existingPost);
+
+                // Slug oluştur (eğer yoksa)
+                if (string.IsNullOrWhiteSpace(existingPost.Slug))
+                {
+                    existingPost.Slug = GenerateSlug(existingPost.Title);
+                }
+
+                // Tag ilişkilerini güncelle
+                existingPost.PostTags.Clear();
+                if (updatePostDto.TagIds.Any())
+                {
+                    foreach (var tagId in updatePostDto.TagIds)
+                    {
+                        existingPost.PostTags.Add(new PostTag
+                        {
+                            PostId = id,
+                            TagId = tagId
+                        });
+                    }
+                }
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Updated post {PostId}: {Title}", id, post.Title);
+                _logger.LogInformation("Updated post {PostId}: {Title}", id, existingPost.Title);
 
                 return NoContent();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating post {PostId}", id);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
@@ -375,13 +365,6 @@ namespace SmartWare.API.Controllers
         // DELETE: api/posts/5
         // Post sil (Soft Delete)
         // ============================================
-        /// <summary>
-        /// Bir blog postunu siler (soft delete)
-        /// </summary>
-        /// <param name="id">Post ID</param>
-        /// <returns>Sonuç</returns>
-        /// <response code="204">Başarılı - Post silindi</response>
-        /// <response code="404">Post bulunamadı</response>
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -396,7 +379,6 @@ namespace SmartWare.API.Controllers
                     return NotFound(new { message = $"Post with ID {id} not found" });
                 }
 
-                // Soft delete
                 post.IsDeleted = true;
                 post.UpdatedAt = DateTime.UtcNow;
 
@@ -409,20 +391,15 @@ namespace SmartWare.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting post {PostId}", id);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
         // ============================================
         // HELPER METHODS
         // ============================================
-
-        /// <summary>
-        /// Başlıktan slug oluşturur (basit versiyon)
-        /// </summary>
         private string GenerateSlug(string title)
         {
-            // Türkçe karakterleri değiştir
             var slug = title.ToLowerInvariant()
                 .Replace('ş', 's')
                 .Replace('ğ', 'g')
@@ -433,13 +410,8 @@ namespace SmartWare.API.Controllers
                 .Replace(' ', '-')
                 .Replace("'", "");
 
-            // Özel karakterleri temizle
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\-]", "");
-
-            // Birden fazla tire varsa tek tireye düşür
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-");
-
-            // Baştaki ve sondaki tireleri kaldır
             slug = slug.Trim('-');
 
             return slug;
@@ -448,42 +420,29 @@ namespace SmartWare.API.Controllers
 }
 
 // ============================================
-// AÇIKLAMALAR
+// DEĞİŞİKLİKLER
 // ============================================
 
-// 1. [ApiController] Attribute:
-//    - Otomatik model validation
-//    - Otomatik 400 BadRequest response
-//    - [FromBody] otomatik binding
+// 1. IMapper Injection:
+//    - AutoMapper servisini constructor'da al
 
-// 2. [Route("api/[controller]")]:
-//    - /api/posts URL'i oluşturur
-//    - [controller] → PostsController'dan "Posts" alır
+// 2. Return Type Değişti:
+//    - Post → PostListDto / PostDetailDto
+//    - Güvenli, kontrollü response
 
-// 3. async/await:
-//    - Database işlemleri asenkron
-//    - Performans artışı
-//    - Non-blocking operations
+// 3. _mapper.Map() Kullanımı:
+//    - Entity → DTO dönüşümü otomatik
+//    - Navigation property'ler dahil
 
-// 4. Include():
-//    - Eager loading
-//    - İlişkili entity'leri de getirir
-//    - N+1 problem'ini önler
+// 4. CreatePostDto:
+//    - Validation attributes çalışır
+//    - [ApiController] otomatik validate eder
+//    - BadRequest 400 otomatik döner
 
-// 5. Status Codes:
-//    - 200 OK: Başarılı
-//    - 201 Created: Yeni kayıt oluşturuldu
-//    - 204 No Content: İşlem başarılı, response body yok
-//    - 400 Bad Request: Geçersiz istek
-//    - 404 Not Found: Kayıt bulunamadı
-//    - 500 Internal Server Error: Sunucu hatası
+// 5. UpdatePostDto:
+//    - Sadece güncellenebilir alanlar
+//    - Id, CreatedAt korumalı
 
-// 6. Logging:
-//    - ILogger ile loglama
-//    - Hata takibi
-//    - Audit trail
-
-// 7. Soft Delete:
-//    - Fiziksel silme yok
-//    - IsDeleted = true
-//    - Query filter otomatik filtreler
+// 6. ProducesResponseType:
+//    - Swagger dokümantasyonu için
+//    - Response tipini belirtir
