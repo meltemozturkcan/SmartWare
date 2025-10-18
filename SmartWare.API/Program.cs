@@ -132,10 +132,10 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(options =>
+    app.UseSwaggerUI(c =>
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartWare API v1");
-        options.RoutePrefix = string.Empty;  // Swagger root'ta açılır: https://localhost:5001/
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartWare API v1");
+        c.RoutePrefix = string.Empty; // Swagger'ı root'ta aç
     });
 }
 // Configure the HTTP request pipeline.

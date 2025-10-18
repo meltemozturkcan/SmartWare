@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SmartWare.API.Core.Entities;
 using SmartWare.API.Data;
 using SmartWare.API.Features.Blog.DTOs;
