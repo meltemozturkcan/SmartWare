@@ -114,61 +114,56 @@ namespace SmartWare.API.Controllers
         [HttpPost("login")]
         [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<AuthResponseDto>> Login(LoginDto loginDto)
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
             try
             {
-                // Username veya Email ile kullanıcı bul
+                // Giriş bilgilerini log'la
+                _logger.LogInformation($"Login attempt for: {loginDto.UsernameOrEmail}");
+
+                // Kullanıcıyı bul
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u =>
-                        u.Username == loginDto.UsernameOrEmail ||
-                        u.Email == loginDto.UsernameOrEmail);
+                        (u.Username == loginDto.UsernameOrEmail ||
+                         u.Email == loginDto.UsernameOrEmail) &&
+                        !u.IsDeleted);
 
                 if (user == null)
                 {
-                    return Unauthorized(new { message = "Invalid credentials" });
+                    _logger.LogWarning("Kullanıcı bulunamadı");
+                    return Unauthorized(new { message = "Kullanıcı bulunamadı" });
                 }
 
-                // Şifre doğrula
-                if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
+                // Şifre doğrulama
+                bool isValidPassword = BCrypt.Net.BCrypt.Verify(
+                    loginDto.Password,
+                    user.PasswordHash
+                );
+
+                if (!isValidPassword)
                 {
-                    return Unauthorized(new { message = "Invalid credentials" });
+                    _logger.LogWarning("Geçersiz şifre");
+                    return Unauthorized(new { message = "Geçersiz şifre" });
                 }
 
-                // Aktif mi?
-                if (!user.IsActive)
+                // Token üretme
+                var token = _tokenService.GenerateJwtToken(user);
+
+                return Ok(new
                 {
-                    return Unauthorized(new { message = "Account is deactivated" });
-                }
-
-                // Token oluştur
-                var token = _tokenService.GenerateAccessToken(user);
-                var refreshToken = _tokenService.GenerateRefreshToken();
-
-                // Refresh token'ı güncelle
-                user.RefreshToken = refreshToken;
-                user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays);
-                user.LastLoginAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-
-                var userDto = _mapper.Map<UserDto>(user);
-
-                var response = new AuthResponseDto
-                {
-                    Token = token,
-                    RefreshToken = refreshToken,
-                    TokenExpiration = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes),
-                    User = userDto
-                };
-
-                _logger.LogInformation("User logged in: {Username}", user.Username);
-
-                return Ok(response);
+                    token = token,
+                    username = user.Username,
+                    role = user.Role
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during login");
-                return StatusCode(500, new { message = "Internal server error" });
+                _logger.LogError(ex, $"Login hatası: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    message = "Giriş sırasında bir hata oluştu",
+                    details = ex.Message
+                });
             }
         }
 

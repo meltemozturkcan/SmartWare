@@ -57,6 +57,8 @@ builder.Services.AddAuthentication(options =>
 // 3. Services
 // ============================================
 builder.Services.AddScoped<ITokenService, TokenService>();
+// Kullanıcı Servisi
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -135,7 +137,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartWare API v1");
-        c.RoutePrefix = string.Empty; // Swagger'ı root'ta aç
+        
     });
 }
 // Configure the HTTP request pipeline.
