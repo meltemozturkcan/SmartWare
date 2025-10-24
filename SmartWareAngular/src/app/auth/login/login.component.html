@@ -1,0 +1,48 @@
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">Giriş Yap</div>
+        <div class="card-body">
+          <!-- Başarılı giriş mesajı -->
+          <div *ngIf="loginSuccess" class="alert alert-success">
+            {{ loginSuccessMessage }}
+          </div>
+
+          <!-- Hata mesajı -->
+          <div *ngIf="errorMessage" class="alert alert-danger">
+            {{ errorMessage }}
+          </div>
+
+          <form (ngSubmit)="onSubmit()" *ngIf="!loginSuccess">
+            <div class="mb-3">
+              <label for="usernameOrEmail" class="form-label">Kullanıcı Adı / E-posta</label>
+              <input 
+                id="usernameOrEmail"
+                type="text" 
+                class="form-control" 
+                [(ngModel)]="loginDto.usernameOrEmail" 
+                name="usernameOrEmail" 
+                placeholder="Kullanıcı adınızı veya e-postanızı girin"
+                required
+              >
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Şifre</label>
+              <input 
+                id="password"
+                type="password" 
+                class="form-control" 
+                [(ngModel)]="loginDto.password" 
+                name="password" 
+                placeholder="Şifrenizi girin"
+                required
+              >
+            </div>
+            <button type="submit" class="btn btn-primary">Giriş Yap</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
