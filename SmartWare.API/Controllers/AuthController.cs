@@ -111,17 +111,14 @@ namespace SmartWare.API.Controllers
         // POST: api/auth/login
         // Kullanıcı girişi
         // ============================================
-        [HttpPost("login")]
+       
         [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        
+        [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
             try
             {
-                // Giriş bilgilerini log'la
-                _logger.LogInformation($"Login attempt for: {loginDto.UsernameOrEmail}");
-
                 // Kullanıcıyı bul
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u =>
