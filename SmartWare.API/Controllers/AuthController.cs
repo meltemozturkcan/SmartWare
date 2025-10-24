@@ -114,6 +114,7 @@ namespace SmartWare.API.Controllers
         [HttpPost("login")]
         [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
             try
@@ -147,7 +148,7 @@ namespace SmartWare.API.Controllers
                 }
 
                 // Token üretme
-                var token = _tokenService.GenerateJwtToken(user);
+                var token = _tokenService.GenerateAccessToken(user);
 
                 return Ok(new
                 {

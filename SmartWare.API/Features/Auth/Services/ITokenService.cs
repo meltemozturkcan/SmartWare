@@ -5,7 +5,7 @@ namespace SmartWare.API.Features.Auth.Services
 {
     public interface ITokenService
     {
-        string GenerateAccessToken(User user);
+        string GenerateAccessToken(User user); // Mevcut metodu yeniden adlandır
         string GenerateRefreshToken();
         ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
     }
